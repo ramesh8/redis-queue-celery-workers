@@ -1,0 +1,14 @@
+aiofiles
+fastapi
+uvicorn
+pydantic
+Jinja2
+pytest
+celery
+flower
+redis
+rq
+pymongo
+requests
+httpx
+
