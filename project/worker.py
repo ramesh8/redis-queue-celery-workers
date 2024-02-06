@@ -45,29 +45,30 @@ class CallbackTask(Task):
 
 
 # it is from mq
-def process_mail(sender, filecount):
+def process_mail(mailid, sender, filecount):
     # mailreferenceid = uuid.uuid4()
     # fpath = f"{sender}-{filecount}-{id}.txt"
     for findex in range(filecount):
         # create celery task for each file
         print(f"creating celery task for {sender} file {findex}")
-        process_file.delay(sender, findex)
+        process_file.delay(mailid, sender, findex)
 
 
 @celery.task(name="create_task", base=CallbackTask)
-def process_file(sender, findex):
-    myjob = MyJob(sender, findex)
+def process_file(mailid, sender, findex):
+    myjob = MyJob(mailid, sender, findex)
     myjob.run_stages()
     pass
 
 
 class MyJob:
-    def __init__(self, sender, findex):
+    def __init__(self, mailid, sender, findex):
+        self.mailid = mailid
         self.sender = sender
         self.findex = findex
         mongo = MongoClient("mongodb://mongodbserver:27017/")
         db = mongo["asyncdemo"]
-        # self.mails = db["mails"]
+        self.mails = db["mails"]
         self.files = db["files"]
         self.stages = [
             {
@@ -109,6 +110,7 @@ class MyJob:
 
     def run_stages(self):
         fileid = str(uuid.uuid4())
+        # we can use message queue here instead of loop
         for stage in self.stages:
             fileobj = {
                 "fileid": fileid,
@@ -116,6 +118,7 @@ class MyJob:
                 "index": self.findex,
                 "stage": stage,
                 "timestamp": datetime.datetime.utcnow(),
+                "mail_id": self.mailid,
             }
             print(fileobj)
             self.files.update_one({"fileid": fileid}, {"$set": fileobj}, upsert=True)
